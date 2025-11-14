@@ -31,7 +31,11 @@ extension UserDefaults {
     
     var vmFilesDirectory: String? {
         get {
-            return string(forKey: Self.vmFilesDirectoryKey)
+            if let result = string(forKey: Self.vmFilesDirectoryKey) {
+                return result.removingPercentEncoding
+            } else {
+                return nil
+            }
         }
         set {
             set(newValue, forKey: Self.vmFilesDirectoryKey)
@@ -51,7 +55,11 @@ extension UserDefaults {
 
     var restoreImagesDirectory: String? {
         get {
-            return string(forKey: Self.restoreImagesDirectoryKey)
+            if let result = string(forKey: Self.restoreImagesDirectoryKey) {
+                return result.removingPercentEncoding
+            } else {
+                return nil
+            }
         }
         set {
             set(newValue, forKey: Self.restoreImagesDirectoryKey)
@@ -77,10 +85,5 @@ extension UserDefaults {
             set(newValue, forKey: Self.userRatingCounterKey)
             synchronize()
         }
-    }
-    
-    func resetVMFilesDirectory() {
-        UserDefaults.standard.vmFilesDirectory = URL.baseURL.path
-        UserDefaults.standard.vmFilesDirectoryBookmarkData = Bookmark.createBookmarkData(fromUrl: URL.baseURL)        
     }
 }

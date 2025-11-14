@@ -33,13 +33,34 @@ final class RestoreImageInstall {
     }
 
     func install() {
-        if !FileManager.default.fileExists(atPath: URL.restoreImageURL.path) {
-            Logger.shared.log(level: .default, "no restore image")
-            delegate?.progress(0, progressString: "Error: No restore image")
+        guard let restoreImageName else {
+            self.delegate?.done(error: RestoreError(localizedDescription: "Restore image name unavailable."))
+            return // error
+        }
+        let restoreImagesDirectoryURL = URL.startAccessingRestoreImagesDirectory()
+        let restoreImageURL = restoreImagesDirectoryURL.appending(path: restoreImageName)
+        guard FileManager.default.fileExists(atPath: URL.restoreImageURL.path) else {
+            delegate?.done(error: RestoreError(localizedDescription: "Restore image does not exist at \(restoreImageURL.path)"))
             return
         }
-        
-        loadRestoreImage(restoreImageURL: URL.restoreImageURL)
+
+        let vmFilesDirectoryURL = URL.startAccessingVMFilesDirectory()
+        let bundleURL = URL.createFilename(baseURL: vmFilesDirectoryURL, name: "virtualOS", suffix: "bundle")
+        if let error = createBundle(at: bundleURL) {
+            self.delegate?.done(error: error)
+            return
+        }
+        installState.bundleURL = bundleURL
+        Logger.shared.log(level: .default, "using bundle url \(bundleURL.path)")
+
+        VZMacOSRestoreImage.load(from: restoreImageURL) { (result: Result<Virtualization.VZMacOSRestoreImage, Error>) in
+            switch result {
+            case .success(let restoreImage):
+                self.restoreImageLoaded(restoreImage: restoreImage, bundleURL: bundleURL)
+            case .failure(let error):
+                self.delegate?.done(error: error)
+            }
+        }
     }
     
     func cancel() {
@@ -48,32 +69,7 @@ final class RestoreImageInstall {
     
     // MARK: - Private
     
-    fileprivate func loadRestoreImage(restoreImageURL: URL?) {
-        guard let bundleURL = createBundleURL() else {
-            self.delegate?.done(error: RestoreError(localizedDescription: "Failed to create VM bundle."))
-            return
-        }
-        if let error = createBundle(at: bundleURL) {
-            self.delegate?.done(error: error)
-            return
-        }
-        guard let restoreImageURL else {
-            self.delegate?.done(error: RestoreError(localizedDescription: "Restore image URL unavailable."))
-            return // error
-        }
-        
-        installState.bundleURL = bundleURL
-        VZMacOSRestoreImage.load(from: restoreImageURL) { (result: Result<Virtualization.VZMacOSRestoreImage, Error>) in
-            switch result {
-            case .success(let restoreImage):
-                self.startInstall(restoreImage: restoreImage, bundleURL: bundleURL)
-            case .failure(let error):
-                self.delegate?.done(error: error)
-            }
-        }
-    }
-    
-    fileprivate func startInstall(restoreImage: VZMacOSRestoreImage, bundleURL: URL)  {
+    fileprivate func restoreImageLoaded(restoreImage: VZMacOSRestoreImage, bundleURL: URL)  {
         var versionString = ""
         let macPlatformConfigurationResult = MacPlatformConfiguration.createDefault(fromRestoreImage: restoreImage, versionString: &versionString, bundleURL: bundleURL)
         if case .failure(let error) = macPlatformConfigurationResult {
@@ -123,39 +119,42 @@ final class RestoreImageInstall {
                 Logger.shared.log(level: .default, "Error: Could not install VM, weak self is nil")
                 return
             }
-            
-            let installer = VZMacOSInstaller(virtualMachine: vm, restoringFromImageAt: URL.restoreImageURL)
-            self.installer = installer
-            
-            installer.install { result in
-                self.installState.installing = false
-                switch result {
-                case .success():
-                    self.installFinished(installer: installer)
-                case .failure(let error):
-                    self.delegate?.done(error: error)
-                }
-            }
-            
-            self.observation = installer.progress.observe(\.fractionCompleted) { _, _ in }
-            
-            func updateInstallProgress() {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-                    var progressString = "Installing \(Int(installer.progress.fractionCompleted * 100))%"
-                    if installer.progress.fractionCompleted == 0 {
-                        progressString += " (Please wait)"
-                    }
-                    progressString += "\n\(versionString)"
-                    
-                    if let installing = self?.installState.installing, installing {
-                        self?.delegate?.progress(installer.progress.fractionCompleted, progressString: progressString)
-                        updateInstallProgress()
-                    }
-                }
-            }
-
-            updateInstallProgress()
+            startMacOSInstaller(vm: vm, restoreImageURL: restoreImage.url, versionString: versionString)
         }
+    }
+    
+    fileprivate func startMacOSInstaller(vm: VZVirtualMachine, restoreImageURL: URL, versionString: String) {
+        let installer = VZMacOSInstaller(virtualMachine: vm, restoringFromImageAt: restoreImageURL)
+        self.installer = installer
+        
+        installer.install { result in
+            self.installState.installing = false
+            switch result {
+            case .success():
+                self.installFinished(installer: installer)
+            case .failure(let error):
+                self.delegate?.done(error: error)
+            }
+        }
+        
+        self.observation = installer.progress.observe(\.fractionCompleted) { _, _ in }
+        
+        func updateInstallProgress() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                var progressString = "Installing \(Int(installer.progress.fractionCompleted * 100))%"
+                if installer.progress.fractionCompleted == 0 {
+                    progressString += " (Please wait)"
+                }
+                progressString += "\n\(versionString)"
+                
+                if let installing = self?.installState.installing, installing {
+                    self?.delegate?.progress(installer.progress.fractionCompleted, progressString: progressString)
+                    updateInstallProgress()
+                }
+            }
+        }
+
+        updateInstallProgress()
     }
     
     fileprivate func installFinished(installer: VZMacOSInstaller) {
@@ -186,44 +185,6 @@ final class RestoreImageInstall {
         }
     }
     
-    fileprivate func createBundleURL() -> URL? {
-        var vmFilesDirectoryString = UserDefaults.standard.vmFilesDirectory
-        var vmFilesDirectoryBookmarkData = UserDefaults.standard.vmFilesDirectoryBookmarkData
-        
-        if vmFilesDirectoryString == nil || vmFilesDirectoryBookmarkData == nil {
-            // previous vm file directory no longer exists, reset
-            UserDefaults.standard.resetVMFilesDirectory()
-            vmFilesDirectoryString = UserDefaults.standard.vmFilesDirectory
-            vmFilesDirectoryBookmarkData = UserDefaults.standard.vmFilesDirectoryBookmarkData
-        }
-        
-        guard let vmFilesDirectoryString = UserDefaults.standard.vmFilesDirectory,
-              let vmFilesDirectoryBookmarkData = UserDefaults.standard.vmFilesDirectoryBookmarkData else
-        {
-            return nil // error
-        }
-
-        // try to find a filename that does not exist
-        var url = URL(fileURLWithPath: vmFilesDirectoryString.appending("/" + URL.bundleName))
-        var exists = true
-        var i = 1
-        while exists {
-            url = URL.nextURL(for: url, index: i, baseName: URL.bundleName)
-            if FileManager.default.fileExists(atPath: url.path) {
-                i += 1
-            } else {
-                exists = false
-            }
-        }
-        
-        if Bookmark.startAccess(bookmarkData: vmFilesDirectoryBookmarkData, for: url.path) == nil {
-            return nil // error
-        }
-        
-        Logger.shared.log(level: .default, "using bundle url \(url.path(percentEncoded: false))")
-        return url
-    }
-    
     fileprivate func createBundle(at bundleURL: URL) -> RestoreError? {
         if FileManager.default.fileExists(atPath: bundleURL.path) {
             return nil // already exists, no error
@@ -232,9 +193,7 @@ final class RestoreImageInstall {
         do {
             try FileManager.default.createDirectory(at: bundleURL, withIntermediateDirectories: true, attributes: nil)
         } catch let error {
-            let errorMessage = "Failed to create VM bundle: \(error.localizedDescription)"
-            Logger.shared.log(level: .default, "\(errorMessage)")
-            return RestoreError(localizedDescription: errorMessage)
+            return RestoreError(localizedDescription: "Failed to create VM bundle directory: \(error.localizedDescription)")
         }
 
         // Logger.shared.log(level: .default, "bundle created at \(bundleURL.path)")

@@ -46,27 +46,19 @@ final class RestoreImageDownload {
     
     fileprivate func progressDone(error: Error?) {
         FileModel.cleanUpTemporaryFiles()
-        delegate?.progress(100, progressString: "Done")
+        delegate?.progress(100, progressString: "Restore image download finished.")
         delegate?.done(error: error)
     }
     
     fileprivate func download(restoreImage: VZMacOSRestoreImage) {
         Logger.shared.log(level: .default, "downloading restore image for \(restoreImage.operatingSystemVersionString)")
 
-        var targetURL: URL? = nil
-        if let filesDirectoryString = UserDefaults.standard.restoreImagesDirectory ?? UserDefaults.standard.vmFilesDirectory {
-            targetURL = createRestoreImageURL(directoryString: filesDirectoryString)
-            
-            // grant access for the restore images path
-            guard Bookmark.startRestoreImagesDirectoryAccess() else {
-                Logger.shared.warning("Could not start accessing bookmark \(filesDirectoryString)")
-                return
-            }
-        }
-        
+        let restoreImagesDirectoryURL = URL.startAccessingRestoreImagesDirectory()
+        let restoreImagesURL = URL.createFilename(baseURL: restoreImagesDirectoryURL, name: "RestoreImage", suffix: "ipsw")
+
         let downloadTask = URLSession.shared.downloadTask(with: restoreImage.url) { tempURL, response, error in
             self.downloading = false
-            self.downloadFinished(tempURL: tempURL, restoreImageURL: targetURL, error: error)
+            self.downloadFinished(tempURL: tempURL, restoreImageURL: restoreImagesURL, error: error)
         }
         observation = downloadTask.progress.observe(\.fractionCompleted) { _, _ in }
         downloadTask.resume()
@@ -109,7 +101,6 @@ final class RestoreImageDownload {
         }
         Logger.shared.log(level: .default, "download finished")
         
-        let moveError = RestoreError(localizedDescription: "Failed to prepare downloaded restore image")
         if let tempURL, let restoreImageURL {
             Logger.shared.log(level: .debug, "moving restore image: \(tempURL) to \(restoreImageURL)")
             delegate?.progress(99, progressString: "Preparing file. Please wait...")
@@ -119,29 +110,11 @@ final class RestoreImageDownload {
                 Logger.shared.log(level: .default, "moved restore image to \(restoreImageURL)")
                 progressDone(error: nil)
             } catch {
-                Logger.shared.log(level: .error, "failed to prepare restore image: \(error.localizedDescription)")
-                progressDone(error: moveError)
+                progressDone(error: RestoreError(localizedDescription: "Failed to prepare downloaded restore image: \(error.localizedDescription)"))
             }
         } else {
-            Logger.shared.log(level: .error, "failed to prepare downloaded restore image ")
-            progressDone(error: moveError)
+            progressDone(error: RestoreError(localizedDescription: "Failed to prepare downloaded restore image: invalid destination"))
         }
-    }
-    
-    fileprivate func createRestoreImageURL(directoryString: String) -> URL {
-        // try to find a filename that does not exist
-        var url = URL(fileURLWithPath: directoryString)
-        var exists = true
-        var i = 1
-        while exists {
-            url = URL.nextURL(for: url, index: i, baseName: "RestoreImage")
-            if FileManager.default.fileExists(atPath: url.path) {
-                i += 1
-            } else {
-                exists = false
-            }
-        }
-        return url
     }
 }
 

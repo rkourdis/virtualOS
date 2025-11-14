@@ -9,9 +9,7 @@
 import Foundation
 
 extension URL {
-    static let basePath         = NSHomeDirectory() + "/Documents"
-    static let bundleName       = "virtualOS.bundle/"
-    static let restoreImageName = "RestoreImage.ipsw"
+    static let basePath = NSHomeDirectory() + "/Documents"
 
     static var baseURL: URL {
         return URL(fileURLWithPath: basePath)
@@ -45,15 +43,36 @@ extension URL {
         return self.appending(path: "Parameters.txt")
     }
     
-    static func nextURL(for url: URL, index i: Int, baseName: String) -> URL {
-        // ensure we're working with a directory, not a file
-        var directoryURL = url
-        if !url.hasDirectoryPath {
-            directoryURL = url.deletingLastPathComponent()
+    /// Start accessing security scoped URL for the VM files directory.
+    /// - Returns: VM files directory URL or default value
+    static func startAccessingVMFilesDirectory() -> URL {
+        if let bookmarkPath = UserDefaults.standard.vmFilesDirectory?.removingPercentEncoding,
+           let bookmarkData = UserDefaults.standard.vmFilesDirectoryBookmarkData
+        {
+            if Bookmark.startAccess(bookmarkData: bookmarkData, for: bookmarkPath) == nil {
+                // previous vm file directory no longer exists, reset to default
+                UserDefaults.standard.vmFilesDirectory = URL.basePath
+                return URL.baseURL
+            }
+            return URL.restoreImageURL
         }
-        
-        let filename = "\(baseName)_\(i).ipsw"
-        return directoryURL.appendingPathComponent(filename)
+        return URL.baseURL // default
+    }
+    
+    /// Start accessing security scoped URL for the restore images directory.
+    /// - Returns: Restore image directory URL or default value
+    static func startAccessingRestoreImagesDirectory() -> URL {
+        if let bookmarkPath = UserDefaults.standard.restoreImagesDirectory?.removingPercentEncoding,
+           let bookmarkData = UserDefaults.standard.restoreImagesDirectoryBookmarkData
+        {
+            if Bookmark.startAccess(bookmarkData: bookmarkData, for: bookmarkPath) == nil {
+                // previous restore image directory no longer exists, reset
+                UserDefaults.standard.restoreImagesDirectory = URL.basePath
+                return URL.baseURL
+            }
+            return URL.restoreImageURL
+        }
+        return URL.baseURL // default
     }
     
     fileprivate static func fileURL(for path: String?) -> URL {
@@ -61,6 +80,24 @@ extension URL {
             return URL(fileURLWithPath: path)
         }
         return baseURL // default value
+    }
+
+    static func createFilename(baseURL: URL, name: String, suffix: String) -> URL {
+        // try to find a filename that does not exist
+        let restoreImagesDirectoryURL = URL.startAccessingRestoreImagesDirectory()
+        var url = restoreImagesDirectoryURL.appendingPathComponent("\(name).\(suffix)")
+        var i = 1
+        var exists = true
+        
+        while exists {
+            if FileManager.default.fileExists(atPath: url.path) {
+                url = restoreImagesDirectoryURL.appendingPathComponent("\(name)_\(i).\(suffix)")
+                i += 1
+            } else {
+                exists = false
+            }
+        }
+        return url
     }
 
 }

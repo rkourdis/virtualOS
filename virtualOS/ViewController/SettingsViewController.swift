@@ -87,8 +87,8 @@ final class SettingsViewController: NSViewController {
     
     fileprivate func updateSettingsLabels() {
         let vmFilesDirectory = FileModel.createVMFilesDirectory()
-        restoreImageFilesURLLabel.stringValue = UserDefaults.standard.restoreImagesDirectory ?? vmFilesDirectory.path
         vmFilesURLLabel.stringValue = vmFilesDirectory.path
+        restoreImageFilesURLLabel.stringValue = URL.restoreImagesDirectoryURL.path
     }
     
     fileprivate func postNotification() {

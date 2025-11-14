@@ -25,10 +25,7 @@ final class RestoreImageViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if !Bookmark.startRestoreImagesDirectoryAccess() {
-            Logger.shared.log(level: .default, "Could not access restore images directory")
-        }
-        
+        _ = URL.startAccessingRestoreImagesDirectory()        
         tableView.dataSource = self
         tableView.delegate = self
         

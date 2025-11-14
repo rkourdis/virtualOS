@@ -91,6 +91,7 @@ extension ProgressViewController: ProgressDelegate {
             mainViewController.updateUI()
             
             if let error = error {
+                Logger.shared.log(level: .error, "\(error)")
                 mainViewController.showErrorAlert(error: error)
                 self?.statusTextField.stringValue = "Install Failed."
                 self?.cancelButton.title = "Close"

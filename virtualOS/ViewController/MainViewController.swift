@@ -64,7 +64,7 @@ final class MainViewController: NSViewController {
         super.viewWillAppear()
         windowController?.mainViewController = self
         vmNameTextField.resignFirstResponder()
-        startAccessToVMFilesDirectory()
+        _ = URL.startAccessingVMFilesDirectory()
         FileModel.cleanUpTemporaryFiles()
         updateUI()
     }
@@ -203,7 +203,6 @@ final class MainViewController: NSViewController {
     @objc func networkBridgeInterfaceWillPopUp() {
         updateBridges()
     }
-
     @objc func updateUI() {
         self.tableView.reloadData()
         
@@ -222,22 +221,36 @@ final class MainViewController: NSViewController {
             viewModel.vmBundle = vmBundle
             if let vmParameters = VMParameters.readFrom(url: vmBundle.url) {
                 viewModel.vmParameters = vmParameters
-                viewModel.textFieldDelegate.vmBundle = vmBundle
-                updateLabels(setZero: false)
-                updateCpuCount(vmParameters)
-                updateRam(vmParameters)
-                updateNetwork(vmParameters)
-                updateEnabledState(enabled: true, vmParameters: vmParameters)
+                if vmParameters.installFinished == true {
+                    viewModel.textFieldDelegate.vmBundle = vmBundle
+                    updateLabels(setZero: false)
+                    updateCpuCount(vmParameters)
+                    updateRam(vmParameters)
+                    updateNetwork(vmParameters)
+                    updateEnabledState(enabled: true, vmParameters: vmParameters)
+                    windowController?.updateButtons(hidden: false)
+                } else {
+                    invalidBundleOrInstallIncomplete()
+                }
+            } else {
+                viewModel.vmParameters = nil
+                invalidBundleOrInstallIncomplete()
             }
         } else {
             vmNameTextField.stringValue = "No virtual machines available. Press install to add one."
             viewModel.vmParameters = nil
             updateLabels(setZero: true)
             updateEnabledState(enabled: false)
+            windowController?.updateButtons(hidden: true)
         }
         
         updateBridges()
         updateOutlineView()
+    }
+    
+    fileprivate func invalidBundleOrInstallIncomplete() {
+        updateLabels(setZero: true)
+        updateEnabledState(enabled: false)
     }
     
     fileprivate func updateBridges() {
@@ -286,15 +299,16 @@ final class MainViewController: NSViewController {
     // MARK: - Private
     
     fileprivate func updateEnabledState(enabled: Bool, vmParameters: VMParameters? = nil) {
-        ramSlider.isEnabled        = enabled
-        cpuCountSlider.isEnabled   = enabled
-        vmNameTextField.isEnabled  = enabled
+        ramSlider.isEnabled          = enabled
+        cpuCountSlider.isEnabled     = enabled
+        vmNameTextField.isEnabled    = enabled
+        microphoneSwitch.isEnabled   = enabled
+        networkPopUpButton.isEnabled = enabled
         if vmParameters?.microphoneEnabled ?? false {
             microphoneSwitch.state = .on
         } else {
             microphoneSwitch.state = .off
         }
-        windowController?.updateButtons(hidden: !enabled)
     }
     
     fileprivate func updateCpuCount(_ vmParameters: VMParameters) {
@@ -389,16 +403,6 @@ final class MainViewController: NSViewController {
         }
     }
     
-    fileprivate func startAccessToVMFilesDirectory() {
-        if let bookmarkURL = UserDefaults.standard.vmFilesDirectory?.removingPercentEncoding,
-           let bookmarkData = UserDefaults.standard.vmFilesDirectoryBookmarkData
-        {
-            if Bookmark.startAccess(bookmarkData: bookmarkData, for: bookmarkURL) == nil {
-                // previous vm file directory no longer exists, reset
-                UserDefaults.standard.resetVMFilesDirectory()
-            }
-        }
-    }
 }
 
 extension MainViewController: NSTableViewDelegate {
