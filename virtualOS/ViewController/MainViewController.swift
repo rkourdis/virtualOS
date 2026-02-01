@@ -157,7 +157,7 @@ final class MainViewController: NSViewController {
                 }
             }
             
-            showSheet(mode: .install, restoreImageName: restoreImageName, diskImageSize: self.diskImageSize)
+            showSheet(restoreImageName: restoreImageName, diskImageSize: self.diskImageSize)
         }
     }
     
@@ -299,11 +299,12 @@ final class MainViewController: NSViewController {
     // MARK: - Private
     
     fileprivate func updateEnabledState(enabled: Bool, vmParameters: VMParameters? = nil) {
-        ramSlider.isEnabled          = enabled
-        cpuCountSlider.isEnabled     = enabled
-        vmNameTextField.isEnabled    = enabled
-        microphoneSwitch.isEnabled   = enabled
-        networkPopUpButton.isEnabled = enabled
+        ramSlider.isEnabled                = enabled
+        cpuCountSlider.isEnabled           = enabled
+        vmNameTextField.isEnabled          = enabled
+        microphoneSwitch.isEnabled         = enabled
+        networkPopUpButton.isEnabled       = enabled
+        networkBridgePopUpButton.isEnabled = enabled
         if vmParameters?.microphoneEnabled ?? false {
             microphoneSwitch.state = .on
         } else {
@@ -368,16 +369,17 @@ final class MainViewController: NSViewController {
         updateLabels(setZero: false)
     }
     
-    fileprivate func showSheet(mode: ProgressViewController.Mode, restoreImageName: String?, diskImageSize: Int?)  {
+    fileprivate func showSheet(restoreImageName: String, diskImageSize: Int)  {
         if let progressWindowController = mainStoryBoard.instantiateController(withIdentifier: "ProgressWindowController") as? NSWindowController,
-           let progressWindow = progressWindowController.window
+           let progressWindow = progressWindowController.window,
+           let progressViewController = progressWindow.contentViewController as? ProgressViewController
         {
-            if let progressViewController = progressWindow.contentViewController as? ProgressViewController {
-                progressViewController.mode = mode
-                progressViewController.diskImageSize = diskImageSize
-                progressViewController.restoreImageName = restoreImageName
-                presentAsSheet(progressViewController)
+            if restoreImageName == Constants.restoreImageNameLatest {
+                progressViewController.startDownload()
+            } else {
+                progressViewController.startInstall(restoreImageName: restoreImageName, diskImageSize: diskImageSize)
             }
+            presentAsSheet(progressViewController)
         } else {
             Logger.shared.log(level: .default, "show modal failed")
         }

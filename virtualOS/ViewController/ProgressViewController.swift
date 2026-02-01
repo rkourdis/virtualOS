@@ -22,8 +22,6 @@ final class ProgressViewController: NSViewController {
     @IBOutlet weak var cancelButton: NSButton!
     
     var mode: Mode = .download
-    var restoreImageName: String?
-    var diskImageSize: Int? = 0
     fileprivate let restoreImageDownload = RestoreImageDownload()
     fileprivate var restoreImageInstall = RestoreImageInstall()
     
@@ -33,27 +31,7 @@ final class ProgressViewController: NSViewController {
         progressIndicator.doubleValue = 0
         statusTextField.stringValue = "Starting"
         statusTextField.font = .monospacedDigitSystemFont(ofSize: 13, weight: .regular)
-    }
-    
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        if restoreImageName == Constants.restoreImageNameLatest ||
-           mode == .download
-        {
-            restoreImageDownload.delegate = self
-            restoreImageDownload.fetch()
-            mode = .download // restoreImageNameLatest is also a download
-        } else if mode == .install {
-            restoreImageInstall.restoreImageName = restoreImageName
-            restoreImageInstall.diskImageSize = diskImageSize
-            restoreImageInstall.delegate = self
-            restoreImageInstall.install()
-        }
-    }
-    
-    override func viewWillDisappear() {
-        super.viewWillDisappear()
-        cancel()
+
     }
     
     @IBAction func cancelButtonPressed(_ sender: NSButton) {
@@ -62,6 +40,20 @@ final class ProgressViewController: NSViewController {
             mainViewController.updateUI()
             mainViewController.dismiss(self)
         }
+    }
+    
+    func startDownload() {
+        mode = .download
+        restoreImageDownload.delegate = self
+        restoreImageDownload.fetch()
+    }
+    
+    func startInstall(restoreImageName: String, diskImageSize: Int) {
+        mode = .install
+        restoreImageInstall.restoreImageName = restoreImageName
+        restoreImageInstall.diskImageSize = diskImageSize
+        restoreImageInstall.delegate = self
+        restoreImageInstall.install()
     }
     
     fileprivate func cancel() {
