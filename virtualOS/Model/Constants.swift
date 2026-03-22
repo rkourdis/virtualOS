@@ -14,9 +14,4 @@ struct Constants {
     static let defaultDiskImageSize   = 30
     static let restoreImageNameSelectedNotification = Notification.Name("restoreImageSelected")
     static let didChangeAppSettingsNotification     = Notification.Name("didChangeAppSettings")
-    
-    enum NetworkType: String, CaseIterable, Codable {
-        case nat
-        case bridged
-    }
 }

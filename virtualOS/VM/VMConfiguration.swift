@@ -26,8 +26,6 @@ final class VMConfiguration: VZVirtualMachineConfiguration {
         configureStorageDevice(parameters: parameters, bundleURL: bundleURL)
         configureNetworkDevices(parameters: parameters)
         configureSharedFolder(parameters: parameters)
-        configureClipboardSharing()
-        configureUSB()
 
         platform = macPlatformConfiguration
     }
@@ -104,22 +102,7 @@ final class VMConfiguration: VZVirtualMachineConfiguration {
     
     fileprivate func configureNetworkDevices(parameters: VMParameters) {
         let networkDeviceConfiguration = VZVirtioNetworkDeviceConfiguration()
-        if parameters.networkType == .Bridge {
-            for interface in VZBridgedNetworkInterface.networkInterfaces {
-                if interface.description == parameters.networkBridge {
-                    networkDeviceConfiguration.attachment = VZBridgedNetworkDeviceAttachment(interface: interface)
-                }
-            }
-            
-            if networkDeviceConfiguration.attachment == nil,
-               let defaultInterface = VZBridgedNetworkInterface.networkInterfaces.first
-            {
-                networkDeviceConfiguration.attachment = VZBridgedNetworkDeviceAttachment(interface: defaultInterface)
-            }
-        } else {
-            networkDeviceConfiguration.attachment = VZNATNetworkDeviceAttachment()
-        }
-        
+        networkDeviceConfiguration.attachment = VZNATNetworkDeviceAttachment()
         networkDeviceConfiguration.macAddress = VZMACAddress(string: parameters.macAddress) ?? .randomLocallyAdministered()
         networkDevices = [networkDeviceConfiguration]
     }
@@ -137,22 +120,6 @@ final class VMConfiguration: VZVirtualMachineConfiguration {
         sharingConfiguration.share = singleDirectoryShare
         
         directorySharingDevices = [sharingConfiguration]
-    }
-    
-    fileprivate func configureClipboardSharing() {
-        let consoleDevice = VZVirtioConsoleDeviceConfiguration()
-
-        let spiceAgentPortConfiguration = VZVirtioConsolePortConfiguration()
-        spiceAgentPortConfiguration.name = VZSpiceAgentPortAttachment.spiceAgentPortName
-        spiceAgentPortConfiguration.attachment = VZSpiceAgentPortAttachment()
-        consoleDevice.ports[0] = spiceAgentPortConfiguration
-        
-        consoleDevices.append(consoleDevice)
-    }
-    
-    fileprivate func configureUSB() {
-        let usbControllerConfiguration = VZXHCIControllerConfiguration()
-        usbControllers = [usbControllerConfiguration]
     }
     
     fileprivate func computeCPUCount() -> Int {

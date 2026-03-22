@@ -24,8 +24,8 @@ final class MainViewController: NSViewController {
     @IBOutlet weak var ramLabel: NSTextField!
     @IBOutlet weak var ramSlider: NSSlider!
     @IBOutlet weak var microphoneSwitch: NSSwitch!
-    @IBOutlet weak var networkPopUpButton: NSPopUpButton!
-    @IBOutlet weak var networkBridgePopUpButton: NSPopUpButton!
+//    @IBOutlet weak var networkPopUpButton: NSPopUpButton!
+//    @IBOutlet weak var networkBridgePopUpButton: NSPopUpButton!
     
     fileprivate let mainStoryBoard = NSStoryboard(name: "Main", bundle: nil)
     fileprivate let viewModel = MainViewModel()
@@ -48,7 +48,7 @@ final class MainViewController: NSViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(updateUI), name: NSControl.textDidEndEditingNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(updateUI), name: Constants.didChangeAppSettingsNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(restoreImageSelected), name: Constants.restoreImageNameSelectedNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(networkBridgeInterfaceWillPopUp), name: NSPopUpButton.willPopUpNotification, object: nil)
+//        NotificationCenter.default.addObserver(self, selector: #selector(networkBridgeInterfaceWillPopUp), name: NSPopUpButton.willPopUpNotification, object: nil)
         
         ramSlider.target = self
         ramSlider.action = #selector(memorySliderChanged(sender:))
@@ -183,26 +183,26 @@ final class MainViewController: NSViewController {
         viewModel.storeParametersToDisk()
     }
     
-    @IBAction func networkPopUpChanged(_ sender: NSPopUpButton) {
-        var networkType = NetworkType.NAT
-        if sender.selectedItem?.title == NetworkType.Bridge.rawValue {
-            networkType = .Bridge
-        }
-        
-        updateBridges()
-        viewModel.vmParameters?.networkType = networkType
-        viewModel.storeParametersToDisk()
-        updateUI()
-    }
-    
-    @IBAction func networkBridgeInterfacePopUpChanged(_ sender: NSPopUpButton) {
-        viewModel.vmParameters?.networkBridge = sender.selectedItem?.title
-        viewModel.storeParametersToDisk()
-    }
-    
-    @objc func networkBridgeInterfaceWillPopUp() {
-        updateBridges()
-    }
+//    @IBAction func networkPopUpChanged(_ sender: NSPopUpButton) {
+//        var networkType = NetworkType.NAT
+//        if sender.selectedItem?.title == NetworkType.Bridge.rawValue {
+//            networkType = .Bridge
+//        }
+//        
+//        updateBridges()
+//        viewModel.vmParameters?.networkType = networkType
+//        viewModel.storeParametersToDisk()
+//        updateUI()
+//    }
+//    
+//    @IBAction func networkBridgeInterfacePopUpChanged(_ sender: NSPopUpButton) {
+//        viewModel.vmParameters?.networkBridge = sender.selectedItem?.title
+//        viewModel.storeParametersToDisk()
+//    }
+//    
+//    @objc func networkBridgeInterfaceWillPopUp() {
+//        updateBridges()
+//    }
     @objc func updateUI() {
         self.tableView.reloadData()
         
@@ -226,7 +226,7 @@ final class MainViewController: NSViewController {
                     updateLabels(setZero: false)
                     updateCpuCount(vmParameters)
                     updateRam(vmParameters)
-                    updateNetwork(vmParameters)
+//                    updateNetwork(vmParameters)
                     updateEnabledState(enabled: true, vmParameters: vmParameters)
                     windowController?.updateButtons(hidden: false)
                 } else {
@@ -244,7 +244,7 @@ final class MainViewController: NSViewController {
             windowController?.updateButtons(hidden: true)
         }
         
-        updateBridges()
+//        updateBridges()
         updateOutlineView()
     }
     
@@ -253,23 +253,23 @@ final class MainViewController: NSViewController {
         updateEnabledState(enabled: false)
     }
     
-    fileprivate func updateBridges() {
-        networkBridgePopUpButton.removeAllItems()
-        var i = 0
-        let selectedBridge = viewModel.vmParameters?.networkBridge
-        for interface in VZBridgedNetworkInterface.networkInterfaces {
-            networkBridgePopUpButton.insertItem(withTitle: interface.description, at: i)
-            i += 1
-            if selectedBridge == interface.description {
-                networkBridgePopUpButton.selectItem(at: i)
-                viewModel.vmParameters?.networkBridge = interface.description
-            }
-        }
-        
-        if networkBridgePopUpButton.selectedItem == nil {
-            networkBridgePopUpButton.selectItem(at: 0)
-        }
-    }
+//    fileprivate func updateBridges() {
+//        networkBridgePopUpButton.removeAllItems()
+//        var i = 0
+//        let selectedBridge = viewModel.vmParameters?.networkBridge
+//        for interface in VZBridgedNetworkInterface.networkInterfaces {
+//            networkBridgePopUpButton.insertItem(withTitle: interface.description, at: i)
+//            i += 1
+//            if selectedBridge == interface.description {
+//                networkBridgePopUpButton.selectItem(at: i)
+//                viewModel.vmParameters?.networkBridge = interface.description
+//            }
+//        }
+//        
+//        if networkBridgePopUpButton.selectedItem == nil {
+//            networkBridgePopUpButton.selectItem(at: 0)
+//        }
+//    }
     
     func showErrorAlert(error: Error) {
         var messageText = "Error"
@@ -303,8 +303,8 @@ final class MainViewController: NSViewController {
         cpuCountSlider.isEnabled           = enabled
         vmNameTextField.isEnabled          = enabled
         microphoneSwitch.isEnabled         = enabled
-        networkPopUpButton.isEnabled       = enabled
-        networkBridgePopUpButton.isEnabled = enabled
+//        networkPopUpButton.isEnabled       = enabled
+//        networkBridgePopUpButton.isEnabled = enabled
         if vmParameters?.microphoneEnabled ?? false {
             microphoneSwitch.state = .on
         } else {
@@ -328,22 +328,22 @@ final class MainViewController: NSViewController {
         ramSlider.isEnabled = true
     }
     
-    fileprivate func updateNetwork(_ vmParameters: VMParameters) {
-        switch vmParameters.networkType {
-        case .NAT:
-            networkPopUpButton.selectItem(at: 0)
-        case .Bridge:
-            networkPopUpButton.selectItem(at: 1)
-        default:
-            networkPopUpButton.selectItem(at: 0)
-        }
-        
-        if vmParameters.networkType == .NAT {
-            networkBridgePopUpButton.isHidden = true
-        } else {
-            networkBridgePopUpButton.isHidden = false
-        }
-    }
+//    fileprivate func updateNetwork(_ vmParameters: VMParameters) {
+//        switch vmParameters.networkType {
+//        case .NAT:
+//            networkPopUpButton.selectItem(at: 0)
+//        case .Bridge:
+//            networkPopUpButton.selectItem(at: 1)
+//        default:
+//            networkPopUpButton.selectItem(at: 0)
+//        }
+//        
+//        if vmParameters.networkType == .NAT {
+//            networkBridgePopUpButton.isHidden = true
+//        } else {
+//            networkBridgePopUpButton.isHidden = false
+//        }
+//    }
     
     fileprivate func updateLabels(setZero: Bool) {
         let cpuCount = Int(round(cpuCountSlider.doubleValue))

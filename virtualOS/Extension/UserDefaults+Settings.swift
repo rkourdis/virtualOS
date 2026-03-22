@@ -14,7 +14,6 @@ extension UserDefaults {
     fileprivate static let vmFilesDirectoryBookmarkDataKey       = "vmFilesDirectoryBookmarkData"
     fileprivate static let restoreImagesDirectoryKey             = "restoreImagesDirectoryKey"
     fileprivate static let restoreImagesDirectoryBookmarkDataKey = "restoreImagesDirectoryBookmarkData"
-    fileprivate static let userRatingCounterKey                  = "userRatingCounterKey"
 
     var diskSize: Int {
         get {
@@ -73,16 +72,6 @@ extension UserDefaults {
         }
         set {
             set(newValue, forKey: Self.restoreImagesDirectoryBookmarkDataKey)
-            synchronize()
-        }
-    }
-    
-    var userRatingCounter: Int {
-        get {
-            return integer(forKey: Self.userRatingCounterKey)
-        }
-        set {
-            set(newValue, forKey: Self.userRatingCounterKey)
             synchronize()
         }
     }
